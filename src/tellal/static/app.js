@@ -250,12 +250,21 @@ function paintNav() {
   $("#tabs").innerHTML = ROUTES.filter((r) => r.tab).map((r) => `<a class="tab" href="#/${r.id}" ${r.id === cur ? 'aria-current="page"' : ""}>${ic(r.icon)}<span>${t(r.key)}</span>${badge(r)}</a>`).join("")
     + `<button class="tab" id="moreTab" ${moreActive ? 'aria-current="page"' : ""}>${ic("menu")}<span>${t("more")}</span>${(S.state?.counts.comments ? '<span class="badge">' + S.state.counts.comments + "</span>" : "")}</button>`;
   $("#moreTab").onclick = () => { snd("tap"); openMore(); };
-  const link = (r) => `<a href="#/${r.id}" ${r.id === cur ? 'aria-current="page"' : ""}>${ic(r.icon)}<span>${t(r.key)}</span>${badge(r)}</a>`;
-  const groups = [[L("Yayın", "Publishing"), ["", "onay", "takvim", "kutuphane"]], [L("Büyüme", "Growth"), ["analiz", "reklam", "yorumlar"]], [L("Hesap", "Account"), ["marka", "ayarlar"]]];
-  const acc = S.state?.accounts?.[0];
-  $("#side").innerHTML = `<div class="brand"><span class="logo"></span><span class="wordmark">tellal</span></div>`
-    + groups.map(([g, ids]) => `<div class="group">${g}</div>` + ids.map((id) => link(ROUTES.find((r) => r.id === id))).join("")).join("")
-    + `<div class="foot"><span class="av">${esc((S.state?.brand?.name || "T").trim().slice(0, 1).toLocaleUpperCase("tr"))}</span><span class="grow"><b class="ellipsis">${esc(S.state?.brand?.name || "")}</b>${acc ? "@" + esc(acc.username) + " · " : ""}${S.state?.mode === "demo" ? L("demo", "demo") : "Instagram"}</span></div>`;
+  // Desktop: a floating glass bar in the middle of the header; a lens slides to the current page.
+  const navIds = ["", "onay", "takvim", "kutuphane", "analiz", "reklam", "yorumlar"];
+  const tn = $("#topnav");
+  const prevLens = tn.querySelector(".lens");
+  const from = prevLens ? { x: prevLens.style.getPropertyValue("--x"), w: prevLens.style.getPropertyValue("--w") } : null;
+  tn.innerHTML = `<span class="lens" aria-hidden="true"></span>` + navIds.map((id) => { const r = ROUTES.find((x) => x.id === id); return `<a href="#/${id}" ${id === cur ? 'aria-current="page"' : ""}>${ic(r.icon)}<span class="lbl">${t(r.key)}</span>${badge(r)}</a>`; }).join("");
+  const lens = tn.querySelector(".lens"), act = tn.querySelector("[aria-current=page]");
+  if (from && from.w) { lens.style.setProperty("--x", from.x); lens.style.setProperty("--w", from.w); }
+  requestAnimationFrame(() => {
+    if (!act) { lens.style.opacity = 0; return; }
+    lens.style.opacity = 1;
+    lens.style.setProperty("--x", act.offsetLeft + "px"); lens.style.setProperty("--w", act.offsetWidth + "px");
+  });
+  tn.onpointerover = (e) => { const a2 = e.target.closest("a"); if (a2) { lens.style.setProperty("--x", a2.offsetLeft + "px"); lens.style.setProperty("--w", a2.offsetWidth + "px"); lens.style.opacity = 1; lens.classList.add("peek"); } };
+  tn.onpointerleave = () => { lens.classList.remove("peek"); if (act) { lens.style.setProperty("--x", act.offsetLeft + "px"); lens.style.setProperty("--w", act.offsetWidth + "px"); } else lens.style.opacity = 0; };
   const acts = $("#topActions");
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
   acts.innerHTML = `<button class="searchbtn" id="cmdBtn">${ic("search")}<span>${L("Ara veya git…", "Search or jump to…")}</span><span class="kbd">${mac ? "⌘" : "Ctrl"} K</span></button>`
@@ -264,12 +273,12 @@ function paintNav() {
     + `<button class="btn sm primary newbtn" id="newBtn">${ic("plus")} ${t("newPost")}</button>`
     + `<button class="icon-btn" id="bellBtn" aria-label="${L("Bildirimler", "Notifications")}" title="${L("Bildirimler", "Notifications")}">${ic("bell")}${unread() ? '<span class="dotn"></span>' : ""}</button>`
     + `<button class="icon-btn" id="themeBtn" aria-label="${t("theme")}" title="${t("theme")}">${ic(isDark() ? "sun" : "moon")}</button>`
-    + `<button class="icon-btn" id="sndBtn" title="${t("sound")}" aria-label="${t("sound")}">${ic(kit && kit.enabled ? "sound" : "mute")}</button>`;
+    + `<button class="avatar" id="meBtn" aria-label="${L("Hesap menüsü", "Account menu")}" aria-haspopup="menu">${esc((S.state?.brand?.name || "T").trim().slice(0, 1).toLocaleUpperCase("tr"))}</button>`;
   const dc = $("#demoChip");
   if (dc) dc.onclick = () => { snd("tap"); sheet(`<p style="margin-top:0">${L("Bu, uydurma bir işletmenin (Lale Deri Atölyesi) hesabı. Planlar, paylaşımlar, yorumlar ve sayılar simüle edilir; gerçek Instagram'a hiçbir şey gitmez.", "This is a made-up business (Lale Deri Atölyesi). Plans, posts, comments and numbers are simulated; nothing goes to real Instagram.")}</p>
     <p>${S.state.in_browser ? L("Uygulamanın tamamı şu an bu tarayıcıda çalışıyor; verileriniz cihazınızdan çıkmaz.", "The whole app is running in this browser; your data stays on this device.") : L("Gerçek hesap bağlamak için README'deki 'Instagram bağlantısı' adımlarına bakın.", "To connect a real account, see 'Connecting Instagram' in the README.")}</p>
     <p class="hint">${L("İstediğiniz gibi kurcalayın: onaylayın, silin, fotoğraf yükleyin. Ayarlar → Demoyu sıfırla ile baştan başlarsınız.", "Play freely: approve, delete, upload. Settings → Reset demo starts over.")}</p>`, { title: L("Demo modu", "Demo mode") }); };
-  $("#sndBtn").onclick = () => { if (!kit) return; kit.setEnabled(!kit.enabled); snd("tap"); paintNav(); };
+  $("#meBtn").onclick = (e) => { e.stopPropagation(); meMenu(); };
   $("#cmdBtn").onclick = $("#cmdBtn2").onclick = () => palette();
   $("#themeBtn").onclick = (e) => toggleTheme(e);
   $("#bellBtn").onclick = () => notifications();
@@ -286,6 +295,33 @@ function openMore() {
   $("#moreSearch").onclick = () => setTimeout(palette, 50);
   $("#moreTheme").onclick = (e) => { toggleTheme(e); setTimeout(() => { $("#moreTheme").innerHTML = ic(isDark() ? "sun" : "moon"); }, 50); };
   $("#moreSnd").onclick = () => { if (!kit) return; kit.setEnabled(!kit.enabled); snd("tap"); $("#moreSnd").innerHTML = ic(kit.enabled ? "sound" : "mute"); paintNav(); };
+}
+
+// ------------------------------------------------------------------ account menu
+function meMenu() {
+  const old = $(".menu"); if (old) { old.remove(); return; }
+  snd("tap");
+  const acc = S.state?.accounts?.[0], cur = route().id;
+  const m = document.createElement("div");
+  m.className = "menu"; m.setAttribute("role", "menu");
+  m.innerHTML = `<div class="menu-head"><span class="avatar lg">${esc((S.state?.brand?.name || "T").trim().slice(0, 1).toLocaleUpperCase("tr"))}</span><div class="grow"><b class="ellipsis">${esc(S.state?.brand?.name || "")}</b><small>${acc ? "@" + esc(acc.username) : ""}${S.state?.mode === "demo" ? " · demo" : ""}</small></div></div>
+    <a href="#/marka" role="menuitem" ${cur === "marka" ? 'aria-current="page"' : ""}>${ic("tag")}${t("brand")}<small>${L("ses, ürünler, ritim", "voice, products")}</small></a>
+    <a href="#/ayarlar" role="menuitem" ${cur === "ayarlar" ? 'aria-current="page"' : ""}>${ic("gear")}${t("settings")}<small>${L("hesap, yedek", "account, backup")}</small></a>
+    <hr><button role="menuitem" data-m="theme">${ic(isDark() ? "sun" : "moon")}${isDark() ? L("Açık tema", "Light theme") : L("Koyu tema", "Dark theme")}</button>
+    <button role="menuitem" data-m="sound">${ic(kit && kit.enabled ? "mute" : "sound")}${kit && kit.enabled ? L("Sesleri kapat", "Sounds off") : L("Sesleri aç", "Sounds on")}</button>
+    <button role="menuitem" data-m="keys">${ic("keyboard")}${L("Kısayollar", "Shortcuts")}<small>?</small></button>`;
+  document.body.append(m);
+  const close = () => { m.remove(); document.removeEventListener("click", outside); };
+  const outside = (e) => { if (!m.contains(e.target)) close(); };
+  setTimeout(() => document.addEventListener("click", outside), 0);
+  m.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  m.onclick = (e) => {
+    const b = e.target.closest("[data-m],a"); if (!b) return;
+    const k = b.dataset.m; close();
+    if (k === "theme") toggleTheme(e);
+    if (k === "sound" && kit) { kit.setEnabled(!kit.enabled); snd("tap"); }
+    if (k === "keys") shortcutsSheet();
+  };
 }
 
 // ------------------------------------------------------------------ theme switch (circle reveal)
@@ -401,12 +437,26 @@ function shortcutsSheet() {
     ${k("?")}<span>${L("Bu listeyi göster", "Show this list")}</span></div>`, { title: L("Klavye kısayolları", "Keyboard shortcuts") });
 }
 
+// Every page opens with an editorial header: an index number, a large title and one line of context.
+const PAGE_SUB = {
+  onay: () => S.state?.counts.pending ? L(`${S.state.counts.pending} içerik kararınızı bekliyor`, `${S.state.counts.pending} posts waiting for your call`) : L("Karar bekleyen içerik yok", "Nothing waiting for you"),
+  takvim: () => L("Haftanın akışı. Masaüstünde sürükleyip başka güne taşıyın.", "The week's flow. On desktop, drag to move."),
+  kutuphane: () => L(`${S.state?.counts.media || 0} fotoğraf ve video. Tellal içerikleri bunlardan yazar.`, `${S.state?.counts.media || 0} photos and videos. Posts are written from these.`),
+  analiz: () => L("Ne işe yaradı, ne zaman. Hepsi erişim başına.", "What worked, and when. All per reach."),
+  reklam: () => L("Organik olarak kendini kanıtlamış gönderiler ve dürüst bütçe aralıkları.", "Posts that proved themselves, with honest budget ranges."),
+  yorumlar: () => S.state?.counts.comments ? L(`${S.state.counts.comments} yorum yanıt bekliyor`, `${S.state.counts.comments} comments to answer`) : L("Yanıt bekleyen yorum yok", "Nothing to answer"),
+  marka: () => L("Tellal'ın sizin gibi konuşması için gereken her şey.", "Everything Tellal needs to sound like you."),
+  ayarlar: () => L("Hesap, görünüm, yedek.", "Account, look, backup."),
+};
+function pageHead(r) {
+  const i = ROUTES.indexOf(r) + 1;
+  return `<header class="ph"><span class="idx">${String(i).padStart(2, "0")}</span><div><h1>${esc(t(r.key))}</h1><p>${esc((PAGE_SUB[r.id] || (() => ""))())}</p></div></header>`;
+}
 let renderSeq = 0;
 async function render() {
   const { id, q } = route();
   const r = ROUTES.find((x) => x.id === id) || ROUTES[0];
   document.title = (r.id ? t(r.key) + " · " : "") + "Tellal";
-  $("#title").textContent = t(r.key);
   paintNav();
   const seq = ++renderSeq;
   // A fresh element each time, so listeners a page added don't leak into the next page.
@@ -416,7 +466,7 @@ async function render() {
   try {
     const html = await r.render(q);
     if (seq !== renderSeq) return;
-    if (typeof html === "string") view.innerHTML = html;
+    if (typeof html === "string") view.innerHTML = (r.id ? pageHead(r) : "") + html;
     hydrate(view);
     r.after && r.after();
   } catch (e) {
@@ -576,9 +626,23 @@ async function viewToday() {
     return `<a href="#/takvim" class="${d === startOfDay(now) ? "today" : ""}"><small>${esc(dt(d, { weekday: "short" }))}</small><b>${esc(dt(d, { day: "numeric" }))}</b><span class="dots">${ps.slice(0, 4).map((p) => `<i class="${p.status === "pending" ? "p" : p.status === "published" ? "d" : ""}"></i>`).join("")}</span></a>`;
   }).join("")}</div><div class="legend" style="justify-content:center"><span><i style="width:7px;height:7px;border-radius:50%;background:var(--accent)"></i>${t("pending")}</span><span><i style="width:7px;height:7px;border-radius:50%;background:var(--teal)"></i>${t("approved")}</span><span><i style="width:7px;height:7px;border-radius:50%;background:var(--ok)"></i>${t("published")}</span></div>`;
   const chg = an && an.change && an.change.reach;
-  const reach = an && an.series ? `<div class="card"><div class="spread"><div><div class="eyebrow">${L("Erişim · son 30 gün", "Reach · last 30 days")}</div><div class="bigstat" style="margin-top:6px"><b data-count="${an.totals.reach}">${nf(an.totals.reach)}</b>${chg != null ? `<span class="delta ${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "▲" : "▼"} ${pct(Math.abs(chg), 0)}</span>` : ""}</div></div><a class="btn sm ghost" href="#/analiz">${t("analysis")} ${ic("right")}</a></div><div style="margin-top:12px">${lineChart(an.series, { h: 120, compact: true })}</div></div>` : "";
+  const reach = an && an.series ? `<div class="card"><div class="spread"><div><div class="eyebrow">${L("Erişim · son 30 gün", "Reach · last 30 days")}</div><div class="bigstat" style="margin-top:6px"><b data-count="${an.totals.reach}">${nf(an.totals.reach)}</b>${chg != null ? `<span class="delta ${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "▲" : "▼"} ${pct(Math.abs(chg), 0)}</span>` : ""}</div></div><a class="btn sm ghost" href="#/analiz">${t("analysis")} ${ic("right")}</a></div><div style="margin-top:12px">${lineChart(an.series, { h: 150, compact: true, w: (($("#view") && $("#view").clientWidth) || 360) * (innerWidth >= 1000 ? 0.62 : 1) - 52 })}</div></div>` : "";
   const overview = `<div class="cols" style="margin-top:22px"><div class="card"><div class="spread" style="margin-bottom:10px"><div class="eyebrow">${L("Bu hafta", "This week")}</div><a class="btn sm ghost" href="#/takvim">${t("calendar")} ${ic("right")}</a></div>${strip}</div>${reach}</div>`;
-  return `${hero}${setup}${stats}${failed}${overview}<div class="cols"><div><div class="section"><h2>${L("Sıradaki paylaşımlar", "Up next")}</h2><a class="btn sm ghost" href="#/takvim">${t("calendar")} ${ic("right")}</a></div><div class="card"><div class="list">${next}</div></div></div><div>${occ}${ev}</div></div>`;
+  // Bento: one grid of tiles in different sizes instead of stacked sections.
+  const tile = (cls, inner, href) => href ? `<a class="tile-b ${cls}" href="${href}">${inner}</a>` : `<section class="tile-b ${cls}">${inner}</section>`;
+  const occList = st.occasions.slice(0, 3).map((o) => `<div class="occ"><span class="when"><b>${o.in_days}</b><small>${L("gün", "days")}</small></span><span class="grow"><b class="ellipsis">${esc(o.name)}</b><small>${esc(new Date(o.date + "T12:00:00").toLocaleDateString(LANG === "tr" ? "tr-TR" : "en-GB", { day: "numeric", month: "long" }))}</small></span></div>`).join("") || `<small>${L("Yakında özel gün yok.", "No occasions soon.")}</small>`;
+  const evList = st.events.slice(0, 5).map((e) => `<div class="ev" ${e.post_id ? `data-open="${e.post_id}"` : ""}><i></i><span class="grow">${esc(e.message)}</span><small>${relDay(e.ts) === L("Bugün", "Today") ? hm(e.ts) : esc(dt(e.ts, { day: "numeric", month: "short" }))}</small></div>`).join("");
+  return `${setup}${failed}<div class="bento">
+    ${tile("b-hero", `<div class="mesh" aria-hidden="true"></div>${hero}`)}
+    ${tile("b-pending" + (c.pending ? " hot" : ""), `<span class="eyebrow">${t("pending")}</span><b data-count="${c.pending}">${c.pending}</b><span class="go">${L("Onaya git", "Review")} ${ic("right")}</span>`, "#/onay")}
+    ${tile("b-mini", `<span class="eyebrow">${L("Sırada", "Queued")}</span><b data-count="${c.approved}">${c.approved}</b>`, "#/takvim")}
+    ${tile("b-mini", `<span class="eyebrow">${L("Yorum", "Comments")}</span><b data-count="${c.comments}">${c.comments}</b>`, "#/yorumlar")}
+    ${tile("b-chart", reach ? reach.replace('<div class="card">', "<div>") : `<span class="eyebrow">${t("reach")}</span>`)}
+    ${tile("b-week", `<div class="spread" style="margin-bottom:12px"><span class="eyebrow">${L("Bu hafta", "This week")}</span><a class="btn sm ghost" href="#/takvim">${t("calendar")} ${ic("right")}</a></div>${strip}`)}
+    ${tile("b-next", `<div class="spread"><span class="eyebrow">${L("Sıradaki paylaşımlar", "Up next")}</span><span class="muted num">${c.published_7d} ${L("paylaşım / 7 gün", "posts / 7 days")}</span></div><div class="list" style="margin-top:6px">${next}</div>`)}
+    ${tile("b-occ", `<span class="eyebrow">${L("Yaklaşan özel günler", "Coming up")}</span><div style="margin-top:10px">${occList}</div>`)}
+    ${tile("b-ev", `<span class="eyebrow">${L("Son hareketler", "Activity")}</span><div class="evs">${evList}</div>`)}
+  </div>`;
 }
 document.addEventListener("click", (e) => {
   const o = e.target.closest("[data-open]");
@@ -648,7 +712,7 @@ async function viewApprove() {
   DECK.sort((a, b) => (a.scheduled_at || 9e12) - (b.scheduled_at || 9e12));
   if (!DECK.length) return `<div class="empty">${ic("check")}<h3>${t("noPending")}</h3><p>${t("noPendingT")}</p><button class="btn primary" id="planBtn">${ic("wand")} ${t("planWeek")}</button></div>`;
   DECK_TOTAL = DECK.length;
-  const toggle = `<div class="toolbar"><div class="left"><span class="muted">${L(`${DECK.length} içerik onay bekliyor`, `${DECK.length} waiting for review`)}</span></div><div class="right"><div class="seg" id="revV"><button data-v="cards" aria-pressed="${reviewView === "cards"}">${ic("cards")} ${L("Kart", "Cards")}</button><button data-v="list" aria-pressed="${reviewView === "list"}">${ic("list")} ${L("Liste", "List")}</button></div></div></div>`;
+  const toggle = `<div class="toolbar"><div class="left"></div><div class="right"><div class="seg" id="revV"><button data-v="cards" aria-pressed="${reviewView === "cards"}">${ic("cards")} ${L("Kart", "Cards")}</button><button data-v="list" aria-pressed="${reviewView === "list"}">${ic("list")} ${L("Liste", "List")}</button></div></div></div>`;
   if (reviewView === "list") return toggle + reviewTable();
   return toggle + `<div id="deckBox"></div>`;
 }
