@@ -1,0 +1,8 @@
+* text=auto
+*.sh text eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.mp4 binary
+# GitHub dil istatistiğinde projeyi Python olarak göster
+src/tellal/static/** linguist-vendored

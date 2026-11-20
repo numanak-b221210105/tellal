@@ -1,0 +1,195 @@
+[
+ {
+  "file": "siyah-canta.jpg",
+  "kind": "image",
+  "title": "Siyah Tote Çanta",
+  "notes": "Bitkisel tabaklanmış dana derisi. İç fermuarlı cep var. Laptop sığar (14 inç).",
+  "tags": [
+   "canta"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "taba-canta.jpg",
+  "kind": "image",
+  "title": "Taba Tote Çanta",
+  "notes": "Kullandıkça rengi koyulaşır ve güzelleşir. Omuz askısı 60 cm.",
+  "tags": [
+   "canta"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "bordo-canta.jpg",
+  "kind": "image",
+  "title": "Bordo Tote Çanta",
+  "notes": "Sınırlı sayıda üretildi. Pirinç kilit.",
+  "tags": [
+   "canta"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "taba-cuzdan.jpg",
+  "kind": "image",
+  "title": "Taba Cüzdan",
+  "notes": "6 kart bölmesi, bozuk para gözü. El dikişi.",
+  "tags": [
+   "cuzdan"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "siyah-cuzdan.jpg",
+  "kind": "image",
+  "title": "Siyah Cüzdan",
+  "notes": "İnce yapı, arka cebe rahat sığar.",
+  "tags": [
+   "cuzdan"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "kahve-kemer.jpg",
+  "kind": "image",
+  "title": "Kahve Kemer",
+  "notes": "Tek parça deri, pirinç toka. Bel ölçüsüne göre kesilir.",
+  "tags": [
+   "kemer"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "yesil-kartlik.jpg",
+  "kind": "image",
+  "title": "Yeşil Kartlık",
+  "notes": "4 kart, ortada banknot bölmesi. İsim baskısı yapılabilir.",
+  "tags": [
+   "kartlik"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "bej-kartlik.jpg",
+  "kind": "image",
+  "title": "Bej Kartlık",
+  "notes": "Hafif ve ince. Kişiye özel harf baskısı.",
+  "tags": [
+   "kartlik"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "kahve-sirt.jpg",
+  "kind": "image",
+  "title": "Kahve Sırt Çantası",
+  "notes": "Günlük kullanım için. Dış cep, ayarlanabilir askılar.",
+  "tags": [
+   "canta"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "anahtarlik.jpg",
+  "kind": "image",
+  "title": "Deri Anahtarlık",
+  "notes": "Atölyedeki kesimlerden kalan derilerle yapılır, israf olmaz.",
+  "tags": [
+   "aksesuar"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "atolye.jpg",
+  "kind": "image",
+  "title": "Taba Tote Çanta",
+  "notes": "Deri tek tek elde kesiliyor. Bir çanta yaklaşık iki gün sürüyor.",
+  "tags": [
+   "atolye",
+   "surec"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "deri-secimi.jpg",
+  "kind": "image",
+  "title": "Kartlık",
+  "notes": "Altı renk seçeneği: siyah, taba, kahve, bordo, yeşil, bej. İsim baskısı ücretsiz.",
+  "tags": [
+   "renk"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "paketleme.jpg",
+  "kind": "image",
+  "title": "Hediye Paketi",
+  "notes": "Her sipariş kutulu ve kurdeleli gönderilir. Not kartı eklenebilir.",
+  "tags": [
+   "paket"
+  ],
+  "width": 864,
+  "height": 1080
+ },
+ {
+  "file": "reel-dikis.mp4",
+  "kind": "video",
+  "title": "Taba Cüzdan",
+  "notes": "Kenar dikişi elde atılıyor. Her ilmek tek tek.",
+  "tags": [
+   "atolye",
+   "surec"
+  ],
+  "width": 720,
+  "height": 1280,
+  "duration": 9.0
+ },
+ {
+  "file": "reel-canta.mp4",
+  "kind": "video",
+  "title": "Siyah Tote Çanta",
+  "notes": "Yakın plan: doku, kilit ve iç cep.",
+  "tags": [
+   "canta"
+  ],
+  "width": 720,
+  "height": 1280,
+  "duration": 9.0
+ },
+ {
+  "file": "reel-paket.mp4",
+  "kind": "video",
+  "title": "Hediye Paketi",
+  "notes": "Sipariş paketleniyor: kutu, kurdele, not kartı.",
+  "tags": [
+   "paket"
+  ],
+  "width": 720,
+  "height": 1280,
+  "duration": 9.0
+ },
+ {
+  "file": "reel-renkler.mp4",
+  "kind": "video",
+  "title": "Kartlık",
+  "notes": "Altı renk seçeneği. Hangisi sizin?",
+  "tags": [
+   "renk"
+  ],
+  "width": 720,
+  "height": 1280,
+  "duration": 9.0
+ }
+]

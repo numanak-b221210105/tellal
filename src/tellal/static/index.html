@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Tellal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Küçük işletmeler için sosyal medya asistanı: kendi fotoğraflarınızdan Instagram gönderisi, Reels ve hikâye planlar, yazar, zamanında paylaşır. Son söz sizde.">
+<meta name="theme-color" content="#f5f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tellal">
+<link rel="stylesheet" href="app.css">
+<script src="appkit.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="side"></aside>
+  <div class="main">
+    <header class="top">
+      <div class="top-title"><span class="logo" aria-hidden="true"></span><h1 id="title">Tellal</h1></div>
+      <div class="top-actions" id="topActions"></div>
+    </header>
+    <div class="banner" id="banner" hidden></div>
+    <main id="view" tabindex="-1"></main>
+  </div>
+</div>
+<nav class="tabs" id="tabs"></nav>
+<div class="sheet-wrap" id="sheet" hidden><div class="sheet-bg" data-close></div><section class="sheet" role="dialog" aria-modal="true"></section></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

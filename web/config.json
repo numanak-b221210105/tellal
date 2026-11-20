@@ -1,0 +1,16 @@
+{
+  "name": "Tellal: sosyal medya asistanı",
+  "short_name": "Tellal",
+  "description": "Plans, writes and schedules Instagram posts, Reels and Stories from your own photos. You approve, it publishes. Live demo running fully in your browser.",
+  "package": "tellal",
+  "module": "tellal.api:app",
+  "index": "src/tellal/static/index.html",
+  "static": "src/tellal/static",
+  "routes": ["/api/", "/media/", "/p/", "/auth/"],
+  "requirements": ["fastapi==0.163.1", "pydantic==2.14.3", "python-multipart==0.0.34"],
+  "env": {"TELLAL_DATA_DIR": "/home/pyodide/data", "TELLAL_MODE": "demo", "TELLAL_LLM": "off", "TELLAL_PUBLIC_URL": "https://localhost"},
+  "persist": "/home/pyodide/data",
+  "sounds": "app",
+  "theme_color": "#c4552a",
+  "background_color": "#f5f1ea"
+}

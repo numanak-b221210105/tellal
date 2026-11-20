@@ -1,0 +1,23 @@
+{
+ "name": "Tellal: sosyal medya asistanı",
+ "short_name": "Tellal",
+ "description": "Kendi fotoğraflarınızdan Instagram gönderisi, Reels ve hikâye planlar, yazar ve zamanında paylaşır. Son söz sizde.",
+ "id": "./",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#f5f1ea",
+ "theme_color": "#c4552a",
+ "lang": "tr",
+ "categories": ["business", "productivity", "social"],
+ "icons": [
+  {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+  {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+  {"src": "maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+ ],
+ "shortcuts": [
+  {"name": "Onay bekleyenler", "url": "./#/onay"},
+  {"name": "Takvim", "url": "./#/takvim"},
+  {"name": "Kütüphane", "url": "./#/kutuphane"}
+ ]
+}

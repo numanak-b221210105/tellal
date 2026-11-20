@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tellal"
+version = "0.1.0"
+description = "AI social media assistant for small businesses: plans, writes and schedules Instagram posts, Reels and Stories from your own photos, explains what the algorithm rewards, and suggests ad budgets. You approve, it publishes."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Numan AK" }]
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "httpx>=0.27",
+  "pydantic>=2.6",
+  "python-multipart>=0.0.9",
+  "uvicorn[standard]>=0.29",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+tellal = "tellal.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tellal"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "DTZ"]
+ignore = ["SIM108", "E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.File", "fastapi.Query", "fastapi.Form"]
