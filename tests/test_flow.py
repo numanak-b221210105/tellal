@@ -134,3 +134,21 @@ def test_comment_reply_flow(client):
     client.patch(f"/api/comments/{c['id']}", json={"reply_draft": "Teşekkürler!"})
     r = client.post(f"/api/comments/{c['id']}/send").json()
     assert r["status"] == "replied" and r["reply_text"] == "Teşekkürler!"
+
+
+def test_video_posters_and_editor_helpers(client):
+    media = client.get("/api/media").json()
+    video = next(m for m in media if m["kind"] == "video")
+    r = client.get(f"/media/{video['id']}/poster")
+    assert r.status_code == 200 and r.content[:2] == b"\xff\xd8"
+    st = client.get("/api/state").json()
+    assert set(st["best_slots"]) == {str(d) for d in range(7)}
+    pid = client.get("/api/posts?status=pending").json()[0]["id"]
+    p = client.get(f"/api/posts/{pid}").json()
+    assert all(t not in p["hashtags"] for t in p["tag_ideas"])
+
+
+def test_fonts_are_served(client):
+    r = client.get("/fonts/inter-latin-wght-normal.woff2")
+    assert r.status_code == 200 and r.headers["content-type"] == "font/woff2"
+    assert client.get("/fonts/..%2Fapp.js").status_code == 404

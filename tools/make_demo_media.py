@@ -207,8 +207,10 @@ def main() -> None:
                   "vignette=PI/6,format=yuv420p")
             run("ffmpeg", "-y", "-loop", "1", "-i", str(OUT / src), "-vf", vf, "-t", "9", "-c:v", "libx264", "-preset", "veryfast",
                 "-crf", "30", "-movflags", "+faststart", "-an", str(OUT / name))
+            poster = name.replace(".mp4", ".poster.jpg")
+            run("ffmpeg", "-y", "-ss", "1", "-i", str(OUT / name), "-frames:v", "1", "-vf", "scale=360:-2", "-q:v", "5", str(OUT / poster))
             manifest.append({"file": name, "kind": "video", "title": title, "notes": notes, "tags": tags, "width": 720, "height": 1280,
-                             "duration": 9.0})
+                             "duration": 9.0, "poster": poster})
     (OUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
     total = sum(p.stat().st_size for p in OUT.iterdir())
     print(f"{len(manifest)} files, {total / 1024:.0f} KB")

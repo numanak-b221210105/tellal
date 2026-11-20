@@ -154,7 +154,8 @@
   ],
   "width": 720,
   "height": 1280,
-  "duration": 9.0
+  "duration": 9.0,
+  "poster": "reel-dikis.poster.jpg"
  },
  {
   "file": "reel-canta.mp4",
@@ -166,7 +167,8 @@
   ],
   "width": 720,
   "height": 1280,
-  "duration": 9.0
+  "duration": 9.0,
+  "poster": "reel-canta.poster.jpg"
  },
  {
   "file": "reel-paket.mp4",
@@ -178,7 +180,8 @@
   ],
   "width": 720,
   "height": 1280,
-  "duration": 9.0
+  "duration": 9.0,
+  "poster": "reel-paket.poster.jpg"
  },
  {
   "file": "reel-renkler.mp4",
@@ -190,6 +193,7 @@
   ],
   "width": 720,
   "height": 1280,
-  "duration": 9.0
+  "duration": 9.0,
+  "poster": "reel-renkler.poster.jpg"
  }
 ]

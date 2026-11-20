@@ -75,6 +75,8 @@ def import_demo_media(store: Store, media_dir: Path) -> list[int]:
         )
         name = f"{mid}{Path(m['file']).suffix}"
         shutil.copyfile(src / m["file"], media_dir / name)
+        if m.get("poster"):
+            shutil.copyfile(src / m["poster"], media_dir / f"{mid}.poster.jpg")
         store.update_media(mid, filename=name, created=base + i * 3600)
         ids.append(mid)
     return ids

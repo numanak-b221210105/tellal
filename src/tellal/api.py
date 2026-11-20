@@ -224,6 +224,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             p["media"] = [m for m in media_rows(p["media_ids"]) if m]
             p["rates"] = analytics.rates(p) if p.get("reach") else None
             p["comments_list"] = [c for c in store.comments() if c["post_id"] == p["id"]]
+            brand = load_brand(store)
+            first = p["media"][0] if p["media"] else {}
+            ideas = content.build_hashtags(
+                brand,
+                first.get("title") or "",
+                p.get("pillar") or "urun",
+                extra=[content.hashtag_slug(t) for t in (first.get("tags") or [])],
+            )
+            ideas += [content.hashtag_slug(str(t)) for t in SECTORS.get(brand.sector, SECTORS["diger"])["tags"]]
+            p["tag_ideas"] = [t for t in dict.fromkeys(ideas) if t and t not in (p.get("hashtags") or [])][:6]
         return p
 
     def must_post(pid: int) -> dict[str, Any]:
@@ -247,6 +257,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         from .clock import tz
 
         today = datetime.now(tz(settings.timezone)).date()
+        brand = load_brand(store)
         return {
             "version": __version__,
             "mode": settings.mode,
@@ -256,7 +267,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "llm": bool(chat),
             "ig_configured": bool(settings.ig_app_id and settings.ig_app_secret),
             "login_required": bool(settings.admin_password),
-            "brand": load_brand(store).model_dump(),
+            "brand": brand.model_dump(),
             "accounts": accs,
             "counts": {
                 "pending": sum(1 for p in posts if p["status"] == "pending"),
@@ -270,6 +281,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             },
             "next": [post_out(p, lang) for p in upcoming[:5]],
             "occasions": content.upcoming_occasions(today, 30),
+            "best_slots": analytics.best_slots(
+                posts, settings.timezone, (brand.rhythm.quiet_start, brand.rhythm.quiet_end)
+            ),
             "events": store.events(15),
         }
 
@@ -305,6 +319,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         height: int = Form(0),
         duration: float = Form(0),
         parent_id: int = Form(0),
+        poster: UploadFile | None = File(None),
     ) -> dict[str, Any]:
         data = await file.read()
         if len(data) > MAX_UPLOAD:
@@ -339,6 +354,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         name = f"{mid}{ALLOWED[mime]}"
         (settings.media_dir / name).write_bytes(data)
         store.update_media(mid, filename=name)
+        if kind == "video" and poster is not None:
+            pdata = await poster.read()
+            if pdata[:2] == b"\xff\xd8" and len(pdata) < 5 * 1024 * 1024:
+                (settings.media_dir / f"{mid}.poster.jpg").write_bytes(pdata)
         return {**(store.media(mid) or {}), "used": 0}
 
     @app.patch("/api/media/{mid}")
@@ -358,6 +377,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(409, f"Bu medya {len(busy)} planlı gönderide kullanılıyor; önce onları değiştirin.")
         store.delete_media(mid)
         (settings.media_dir / m["filename"]).unlink(missing_ok=True)
+        (settings.media_dir / f"{mid}.poster.jpg").unlink(missing_ok=True)
         return {"ok": True}
 
     def send_media(m: dict[str, Any] | None) -> Response:
@@ -375,6 +395,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/media/{mid}")
     def get_media(mid: int) -> Response:
         return send_media(store.media(mid))
+
+    @app.get("/media/{mid}/poster")
+    def get_poster(mid: int) -> Response:
+        path = settings.media_dir / f"{mid}.poster.jpg"
+        if not path.is_file():
+            raise HTTPException(404)
+        return Response(path.read_bytes(), media_type="image/jpeg", headers={"cache-control": "private, max-age=86400"})
 
     @app.get("/p/{token}")
     def public_media(token: str) -> Response:
@@ -739,6 +766,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not path.is_file():
             raise HTTPException(404)
         return Response(path.read_bytes(), media_type=mime, headers={"cache-control": cache})
+
+    @app.get("/fonts/{name}", include_in_schema=False)
+    def font(name: str) -> Response:
+        if name.endswith(".woff2") and "/" not in name and ".." not in name:
+            path = STATIC / "fonts" / name
+            if path.is_file():
+                return Response(
+                    path.read_bytes(), media_type="font/woff2", headers={"cache-control": "public, max-age=31536000"}
+                )
+        raise HTTPException(404)
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> Response:

@@ -108,12 +108,17 @@ const ICON = {
 const ic = (n, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n] || ""}</svg>`;
 const FMT_ICON = { post: "img", carousel: "layers", reel: "play", story: "circle" };
 
-function toast(msg, kind = "") {
+function toast(msg, kind = "", action) {
   const el = document.createElement("div");
   el.className = "toast " + kind;
-  el.textContent = msg;
+  const span = document.createElement("span"); span.textContent = msg; el.append(span);
+  if (action) {
+    const b = document.createElement("button"); b.textContent = action.label;
+    b.onclick = () => { el.remove(); action.run(); };
+    el.append(b);
+  }
   $("#toasts").append(el);
-  setTimeout(() => el.remove(), kind === "err" ? 5200 : 3000);
+  setTimeout(() => el.remove(), action ? 6000 : kind === "err" ? 5200 : 3000);
 }
 
 // Dates in the business's time zone, not the device's.
@@ -163,6 +168,11 @@ function mediaSrc(id) {
   if (!blobCache.has(id)) blobCache.set(id, fetch("media/" + id).then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? URL.createObjectURL(b) : "")).catch(() => ""));
   return blobCache.get(id);
 }
+const posterCache = new Map();
+function posterSrc(id) {
+  if (!posterCache.has(id)) posterCache.set(id, fetch(`media/${id}/poster`).then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? URL.createObjectURL(b) : "")).catch(() => ""));
+  return posterCache.get(id);
+}
 let MEDIA = new Map();
 async function loadMedia(force = false) {
   if (!force && MEDIA.size) return MEDIA;
@@ -174,18 +184,18 @@ async function loadMedia(force = false) {
 const io = "IntersectionObserver" in window ? new IntersectionObserver((ents) => ents.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); paintMedia(e.target); } }), { rootMargin: "300px" }) : null;
 async function paintMedia(el) {
   const id = +el.dataset.media;
+  const m = MEDIA.get(id);
+  if (m && m.kind === "video" && el.tagName !== "VIDEO") {
+    // Thumbnails of videos use the poster frame saved on upload, so the whole video isn't downloaded.
+    const poster = await posterSrc(id);
+    if (poster) el.style.backgroundImage = `url("${poster}")`;
+    else if (!el.querySelector(".vthumb")) el.insertAdjacentHTML("afterbegin", `<span class="vthumb">${ic("play")}</span>`);
+    return;
+  }
   const url = await mediaSrc(id);
   if (!url) return;
-  const m = MEDIA.get(id);
-  if (el.tagName === "VIDEO") { el.src = url; return; }
-  if (m && m.kind === "video" && el.dataset.still !== "0") {
-    if (!el.querySelector("video")) {
-      const v = document.createElement("video");
-      Object.assign(v, { src: url + "#t=0.5", muted: true, playsInline: true, preload: "metadata" });
-      v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
-      el.prepend(v);
-    }
-  } else el.style.backgroundImage = `url("${url}")`;
+  if (el.tagName === "VIDEO") { posterSrc(id).then((p) => { if (p) el.poster = p; }); el.src = url; return; }
+  el.style.backgroundImage = `url("${url}")`;
 }
 function hydrate(root = document) {
   $$("[data-media]", root).forEach((el) => (io ? io.observe(el) : paintMedia(el)));
@@ -218,10 +228,19 @@ function paintNav() {
   $("#tabs").innerHTML = ROUTES.filter((r) => r.tab).map((r) => `<a class="tab" href="#/${r.id}" ${r.id === cur ? 'aria-current="page"' : ""}>${ic(r.icon)}<span>${t(r.key)}</span>${badge(r)}</a>`).join("")
     + `<button class="tab" id="moreTab" ${moreActive ? 'aria-current="page"' : ""}>${ic("menu")}<span>${t("more")}</span>${(S.state?.counts.comments ? '<span class="badge">' + S.state.counts.comments + "</span>" : "")}</button>`;
   $("#moreTab").onclick = () => { snd("tap"); openMore(); };
-  $("#side").innerHTML = `<div class="brand"><span class="logo"></span>Tellal</div>` + ROUTES.map((r) => `<a href="#/${r.id}" ${r.id === cur ? 'aria-current="page"' : ""}>${ic(r.icon)}<span>${t(r.key)}</span>${badge(r)}</a>`).join("")
-    + `<div class="foot">${esc(S.state?.brand?.name || "")}<br>${S.state?.mode === "demo" ? L("Demo modu", "Demo mode") : "Instagram"} · v${esc(S.state?.version || "")}</div>`;
+  const link = (r) => `<a href="#/${r.id}" ${r.id === cur ? 'aria-current="page"' : ""}>${ic(r.icon)}<span>${t(r.key)}</span>${badge(r)}</a>`;
+  const groups = [[L("Yayın", "Publishing"), ["", "onay", "takvim", "kutuphane"]], [L("Büyüme", "Growth"), ["analiz", "reklam", "yorumlar"]], [L("Hesap", "Account"), ["marka", "ayarlar"]]];
+  const acc = S.state?.accounts?.[0];
+  $("#side").innerHTML = `<div class="brand"><span class="logo"></span>Tellal</div>`
+    + groups.map(([g, ids]) => `<div class="group">${g}</div>` + ids.map((id) => link(ROUTES.find((r) => r.id === id))).join("")).join("")
+    + `<div class="foot"><b>${esc(S.state?.brand?.name || "")}</b>${acc ? "@" + esc(acc.username) + " · " : ""}${S.state?.mode === "demo" ? L("demo", "demo") : "Instagram"}</div>`;
   const acts = $("#topActions");
-  acts.innerHTML = `<button class="icon-btn" id="sndBtn" title="${t("sound")}">${ic(kit && kit.enabled ? "sound" : "mute")}</button>`;
+  acts.innerHTML = (S.state?.mode === "demo" ? `<button class="demo-chip" id="demoChip"><i></i>Demo</button>` : "")
+    + `<button class="icon-btn" id="sndBtn" title="${t("sound")}" aria-label="${t("sound")}">${ic(kit && kit.enabled ? "sound" : "mute")}</button>`;
+  const dc = $("#demoChip");
+  if (dc) dc.onclick = () => { snd("tap"); sheet(`<p style="margin-top:0">${L("Bu, uydurma bir işletmenin (Lale Deri Atölyesi) hesabı. Planlar, paylaşımlar, yorumlar ve sayılar simüle edilir; gerçek Instagram'a hiçbir şey gitmez.", "This is a made-up business (Lale Deri Atölyesi). Plans, posts, comments and numbers are simulated; nothing goes to real Instagram.")}</p>
+    <p>${S.state.in_browser ? L("Uygulamanın tamamı şu an bu tarayıcıda çalışıyor; verileriniz cihazınızdan çıkmaz.", "The whole app is running in this browser; your data stays on this device.") : L("Gerçek hesap bağlamak için README'deki 'Instagram bağlantısı' adımlarına bakın.", "To connect a real account, see 'Connecting Instagram' in the README.")}</p>
+    <p class="hint">${L("İstediğiniz gibi kurcalayın: onaylayın, silin, fotoğraf yükleyin. Ayarlar → Demoyu sıfırla ile baştan başlarsınız.", "Play freely: approve, delete, upload. Settings → Reset demo starts over.")}</p>`, { title: L("Demo modu", "Demo mode") }); };
   $("#sndBtn").onclick = () => { if (!kit) return; kit.setEnabled(!kit.enabled); snd("tap"); paintNav(); };
 }
 function openMore() {
@@ -234,11 +253,11 @@ async function render() {
   const { id, q } = route();
   const r = ROUTES.find((x) => x.id === id) || ROUTES[0];
   document.title = (r.id ? t(r.key) + " · " : "") + "Tellal";
-  $("#title").textContent = r.id ? t(r.key) : (S.state?.brand?.name || "Tellal");
+  $("#title").textContent = t(r.key);
   paintNav();
   const seq = ++renderSeq;
   const view = $("#view");
-  view.innerHTML = '<div class="loading"><div class="spin"></div></div>';
+  view.innerHTML = `<div class="loading" aria-busy="true"><div class="sk" style="height:40px;width:55%;margin:10px 0 18px"></div><div class="sk" style="height:96px"></div><div class="sk" style="height:220px;margin-top:14px"></div></div>`;
   try {
     const html = await r.render(q);
     if (seq !== renderSeq) return;
@@ -255,13 +274,7 @@ async function refreshState() {
   S.tz = S.state.timezone || S.tz;
   paintNav();
   const b = $("#banner");
-  const dismissed = sessionStorage.getItem("tellal.banner") === "1";
-  if (S.state.mode === "demo" && !dismissed) {
-    b.hidden = false;
-    b.innerHTML = "<span>" + L(`<b>Demo:</b> uydurma bir atölyenin hesabı. Paylaşımlar ve sayılar simüle edilir; gerçek Instagram'a hiçbir şey gitmez.`, `<b>Demo:</b> a made-up workshop. Posts and numbers are simulated; nothing goes to real Instagram.`)
-      + (S.state.in_browser ? L(" Her şey bu tarayıcıda çalışıyor.", " Everything runs in this browser.") : "") + `</span><button class="x" aria-label="${t("close")}">×</button>`;
-    b.querySelector(".x").onclick = () => { try { sessionStorage.setItem("tellal.banner", "1"); } catch { /* ok */ } b.hidden = true; };
-  } else if (S.state.mode !== "demo" && !S.state.accounts.length) {
+  if (S.state.mode !== "demo" && !S.state.accounts.length) {
     b.hidden = false;
     b.innerHTML = L(`Instagram hesabı bağlı değil. <a href="#/ayarlar">Ayarlar</a> bölümünden bağlayın.`, `No Instagram account connected. Connect one in <a href="#/ayarlar">Settings</a>.`);
   } else b.hidden = true;
@@ -310,7 +323,7 @@ function igPreview(p, { idx = 0 } = {}) {
   const cur = ids[idx] ?? ids[0];
   const m = MEDIA.get(cur);
   const mediaEl = m && m.kind === "video"
-    ? `<video data-media="${cur}" muted playsinline loop autoplay></video>`
+    ? `<video data-media="${cur}" muted playsinline loop autoplay preload="metadata"></video>`
     : `<span data-media="${cur}" style="position:absolute;inset:0;background:center/cover no-repeat"></span>`;
   const dots = ids.length > 1 ? `<div class="dots">${ids.map((_, i) => `<i class="${i === idx ? "on" : ""}"></i>`).join("")}</div><div class="count">${idx + 1}/${ids.length}</div>
     ${idx > 0 ? `<button class="nav l" data-nav="-1">${ic("left")}</button>` : ""}${idx < ids.length - 1 ? `<button class="nav r" data-nav="1">${ic("right")}</button>` : ""}` : "";
@@ -351,26 +364,75 @@ async function viewToday() {
   await Promise.all([refreshState(), loadMedia()]);
   const st = S.state, c = st.counts;
   const hello = (() => { const h = +zoneParts(Date.now() / 1000).hour; return h < 12 ? L("Günaydın", "Good morning") : h < 18 ? L("İyi günler", "Good afternoon") : L("İyi akşamlar", "Good evening"); })();
-  const hero = c.pending
-    ? `<div class="hero"><h2>${hello}</h2><p>${L(`${c.pending} içerik onayınızı bekliyor. Onayladıklarınız zamanı gelince kendiliğinden paylaşılır.`, `${c.pending} posts are waiting for you. Approved posts go out on time by themselves.`)}</p><div class="row wrap"><a class="btn" href="#/onay">${ic("stack")} ${L("Onaylamaya başla", "Start reviewing")}</a></div></div>`
-    : `<div class="hero"><h2>${hello}</h2><p>${c.approved ? L(`Her şey yolunda: ${c.approved} içerik sırada.`, `All set: ${c.approved} posts are queued.`) : L("Sırada içerik yok. Haftayı planlayalım mı?", "Nothing queued. Plan the week?")}</p><div class="row wrap"><button class="btn" id="planBtn">${ic("wand")} ${t("planWeek")}</button><a class="btn ghost" href="#/kutuphane">${ic("plus")} ${t("newPost")}</a></div></div>`;
-  const stats = `<div class="grid g2 g4" style="margin-top:14px">
-    <a class="stat ${c.pending ? "hot" : ""}" href="#/onay"><b class="num">${c.pending}</b><span>${t("pending")}</span></a>
-    <a class="stat" href="#/takvim"><b class="num">${c.approved}</b><span>${L("Sırada", "Queued")}</span></a>
-    <a class="stat" href="#/yorumlar"><b class="num">${c.comments}</b><span>${L("Yanıt bekleyen yorum", "Comments to answer")}</span></a>
-    <a class="stat" href="#/analiz"><b class="num">${c.published_7d}</b><span>${L("7 günde paylaşılan", "Published in 7 days")}</span></a></div>`;
+  const name = (st.brand.name && st.brand.name !== "Markam") ? st.brand.name.split(" ")[0] : "";
+  const line = c.pending
+    ? L(`<b>${c.pending} içerik</b> onayınızı bekliyor. Onayladıklarınız zamanı gelince kendiliğinden paylaşılır.`, `<b>${c.pending} posts</b> are waiting for you. Approved posts go out on time by themselves.`)
+    : c.approved ? L(`Her şey yolunda: ${c.approved} içerik sırada, size iş yok.`, `All set: ${c.approved} posts are queued.`) : L("Sırada içerik yok. Haftayı birlikte planlayalım.", "Nothing queued. Let's plan the week.");
+  const hero = `<div class="greet"><div class="eyebrow">${esc(dt(Date.now() / 1000, { weekday: "long", day: "numeric", month: "long" }))}</div>
+    <h2>${hello}${name ? `, <em>${esc(name)}</em>` : ""}.</h2><p>${line}</p>
+    <div class="row wrap">${c.pending ? `<a class="btn primary" href="#/onay">${ic("stack")} ${L("Onaylamaya başla", "Start reviewing")}</a><button class="btn" id="planBtn">${ic("wand")} ${t("planWeek")}</button>`
+      : `<button class="btn primary" id="planBtn">${ic("wand")} ${t("planWeek")}</button><a class="btn" href="#/kutuphane">${ic("plus")} ${t("newPost")}</a>`}</div></div>`;
+  const stats = `<div class="kpis">
+    <a class="kpi ${c.pending ? "hot" : ""}" href="#/onay"><b>${c.pending}</b><span>${t("pending")}</span></a>
+    <a class="kpi" href="#/takvim"><b>${c.approved}</b><span>${L("Sırada", "Queued")}</span></a>
+    <a class="kpi" href="#/yorumlar"><b>${c.comments}</b><span>${L("Yanıt bekleyen yorum", "Comments to answer")}</span></a>
+    <a class="kpi" href="#/analiz"><b>${c.published_7d}</b><span>${L("Son 7 günde paylaşılan", "Published, last 7 days")}</span></a></div>`;
+  const setup = st.mode !== "demo" && (!st.brand.name || st.brand.name === "Markam")
+    ? `<div class="card" style="margin-top:16px"><div class="spread"><div><h3>${L("Önce sizi tanıyalım", "First, tell Tellal about you")}</h3><p class="hint" style="margin:4px 0 0">${L("Üç kısa adım: işletme, ses, iletişim. İçerikler buna göre yazılır.", "Three short steps: business, voice, contact. Posts are written from this.")}</p></div><button class="btn primary sm" id="setupBtn">${L("Başla", "Start")}</button></div></div>` : "";
   const failed = c.failed ? `<div class="card" style="margin-top:12px;border-color:var(--err)"><div class="row">${ic("warn")}<b class="grow">${L(`${c.failed} paylaşım başarısız oldu`, `${c.failed} posts failed`)}</b><a class="btn sm" href="#/takvim">${L("Gör", "View")}</a></div></div>` : "";
   const next = st.next.length ? st.next.map((p) => `<button class="item" data-open="${p.id}">${thumb(p.media_ids[0], p.format)}<span class="grow"><b>${relDay(p.scheduled_at)} ${hm(p.scheduled_at)}</b> · ${t(p.format)}<br><small class="clamp2">${esc((p.caption || p.story_text || "").split("\n")[0])}</small></span>${statusPill(p.status)}</button>`).join("")
     : `<div class="empty" style="padding:16px">${L("Sırada içerik yok.", "Nothing queued.")}</div>`;
   const occ = st.occasions.length ? `<div class="section"><h2>${L("Yaklaşan özel günler", "Upcoming occasions")}</h2></div><div class="card"><div class="list">${st.occasions.slice(0, 4).map((o) => `<div class="item"><span class="pill ${o.in_days <= 7 ? "pending" : ""}">${o.in_days === 0 ? L("bugün", "today") : L(`${o.in_days} gün`, `${o.in_days} days`)}</span><span class="grow"><b>${esc(o.name)}</b><br><small>${esc(new Date(o.date + "T12:00:00").toLocaleDateString(LANG === "tr" ? "tr-TR" : "en-GB", { day: "numeric", month: "long", weekday: "long" }))}</small></span></div>`).join("")}</div><p class="hint">${L("Planlayıcı, özel güne 3 gün kala hazırlanan içeriği o güne göre yazar. Kampanya detaylarını siz eklersiniz; Tellal indirim uydurmaz.", "The planner writes posts for occasions within 3 days. You add offer details; Tellal never invents discounts.")}</p></div>` : "";
   const ev = st.events.length ? `<div class="section"><h2>${L("Son hareketler", "Activity")}</h2></div><div class="card"><div class="list">${st.events.slice(0, 8).map((e) => `<div class="item" ${e.post_id ? `data-open="${e.post_id}"` : ""}><small class="time">${relDay(e.ts) === L("Bugün", "Today") ? hm(e.ts) : dayShort(e.ts)}</small><span class="grow">${esc(e.message)}</span></div>`).join("")}</div></div>` : "";
-  return `${hero}${stats}${failed}<div class="cols"><div><div class="section"><h2>${L("Sıradaki paylaşımlar", "Up next")}</h2><a class="btn sm ghost" href="#/takvim">${t("calendar")} ${ic("right")}</a></div><div class="card"><div class="list">${next}</div></div></div><div>${occ}${ev}</div></div>`;
+  return `${hero}${setup}${stats}${failed}<div class="cols"><div><div class="section"><h2>${L("Sıradaki paylaşımlar", "Up next")}</h2><a class="btn sm ghost" href="#/takvim">${t("calendar")} ${ic("right")}</a></div><div class="card"><div class="list">${next}</div></div></div><div>${occ}${ev}</div></div>`;
 }
 document.addEventListener("click", (e) => {
   const o = e.target.closest("[data-open]");
   if (o && !e.target.closest(".sheet") && o.dataset.open) { snd("tap"); openEditor(+o.dataset.open); }
   if (e.target.closest("#planBtn")) planWeek();
+  if (e.target.closest("#setupBtn")) setupWizard();
 });
+
+// First run: three small steps instead of the whole brand form.
+async function setupWizard() {
+  const r = await api("api/brand");
+  const b = r.brand;
+  let step = 0;
+  const tones = [["samimi", L("Samimi", "Warm")], ["profesyonel", L("Profesyonel", "Professional")], ["eglenceli", L("Eğlenceli", "Playful")], ["zarif", L("Zarif", "Elegant")], ["sade", L("Sade", "Plain")]];
+  const ctas = [["dm", "DM"], ["whatsapp", "WhatsApp"], ["link", L("Link", "Link")], ["visit", L("Mağaza", "Store")], ["call", L("Telefon", "Phone")]];
+  const pages = [
+    () => `<label class="f">${L("İşletmenizin adı", "Business name")}</label><input class="input" id="w_name" value="${esc(b.name === "Markam" ? "" : b.name)}" placeholder="${L("örn. Lale Deri Atölyesi", "e.g. Lale Leather")}">
+      <label class="f">${L("Ne satıyorsunuz?", "What do you sell?")}</label><select class="input" id="w_sector">${Object.entries(r.sectors).map(([k, v]) => `<option value="${k}" ${k === b.sector ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>
+      <label class="f">${L("Şehir", "City")}</label><input class="input" id="w_city" value="${esc(b.city)}">`,
+    () => `<label class="f">${L("Nasıl konuşursunuz?", "How do you sound?")}</label><div class="chips" id="w_tone">${tones.map(([k, n]) => `<button class="chip" data-v="${k}" aria-pressed="${b.tone === k}">${n}</button>`).join("")}</div>
+      <label class="f">${L("Sizi farklı kılan bir şey", "One thing that sets you apart")}</label><input class="input" id="w_usp" value="${esc(b.usps[0] || "")}" placeholder="${L("örn. Her ürün elde dikilir", "e.g. Every piece is hand-stitched")}">
+      <p class="hint">${L("Açıklamalarda bu cümle kullanılır; ne kadar somut, o kadar iyi.", "Used in captions; the more concrete, the better.")}</p>`,
+    () => `<label class="f">${L("Müşteri size nereden ulaşsın?", "How should customers reach you?")}</label><div class="chips" id="w_cta">${ctas.map(([k, n]) => `<button class="chip" data-v="${k}" aria-pressed="${b.cta === k}">${n}</button>`).join("")}</div>
+      <label class="f">WhatsApp / ${L("telefon", "phone")}</label><input class="input" id="w_phone" inputmode="tel" value="${esc(b.whatsapp || b.phone)}">
+      <label class="f">${L("Instagram kullanıcı adı", "Instagram handle")}</label><input class="input" id="w_handle" value="${esc(b.handle)}" placeholder="kullaniciadi">`,
+  ];
+  const read = () => {
+    const v = (id) => { const el = $("#" + id); return el ? el.value.trim() : undefined; };
+    const on = (id) => { const el = $(`#${id} [aria-pressed=true]`); return el ? el.dataset.v : undefined; };
+    if (step === 0) { b.name = v("w_name") || b.name; b.sector = v("w_sector"); b.city = v("w_city"); }
+    if (step === 1) { b.tone = on("w_tone") || b.tone; const u = v("w_usp"); if (u) b.usps = [u, ...b.usps.filter((x) => x !== u)]; }
+    if (step === 2) { b.cta = on("w_cta") || b.cta; const ph = v("w_phone"); if (b.cta === "call") b.phone = ph; else b.whatsapp = ph; b.handle = (v("w_handle") || "").replace(/^@/, ""); }
+  };
+  const draw = () => {
+    const box = sheet(`<div class="steps">${pages.map((_, i) => `<i class="${i <= step ? "on" : ""}"></i>`).join("")}</div>${pages[step]()}`,
+      { title: [L("İşletme", "Business"), L("Ses", "Voice"), L("İletişim", "Contact")][step], foot: `${step ? `<button class="btn" id="wBack">${L("Geri", "Back")}</button>` : ""}<button class="btn primary" id="wNext">${step < 2 ? L("Devam", "Next") : L("Bitir", "Finish")}</button>` });
+    box.addEventListener("click", (e) => { const c = e.target.closest(".chips [data-v]"); if (c) { $$("[data-v]", c.parentElement).forEach((x) => x.setAttribute("aria-pressed", String(x === c))); snd("tap"); } });
+    const back = $("#wBack", box); if (back) back.onclick = () => { read(); step--; draw(); };
+    $("#wNext", box).onclick = async () => {
+      read();
+      if (step === 0 && (!b.name || b.name === "Markam")) { toast(L("İşletme adını yazın", "Enter the business name"), "err"); return; }
+      if (step < 2) { step++; snd("tap"); draw(); return; }
+      try { await api("api/brand", { method: "PUT", body: b }); snd("success"); closeSheet(); toast(L("Hazırız. Şimdi birkaç ürün fotoğrafı ekleyin.", "All set. Now add a few product photos."), "ok"); go("kutuphane"); }
+      catch (er) { fail(er); }
+    };
+  };
+  draw();
+}
 
 async function planWeek(start) {
   snd("start");
@@ -391,9 +453,17 @@ async function viewApprove() {
   DECK = await api("api/posts?status=pending");
   DECK.sort((a, b) => (a.scheduled_at || 9e12) - (b.scheduled_at || 9e12));
   if (!DECK.length) return `<div class="empty">${ic("check")}<h3>${t("noPending")}</h3><p>${t("noPendingT")}</p><button class="btn primary" id="planBtn">${ic("wand")} ${t("planWeek")}</button></div>`;
-  return `<div class="spread"><small>${DECK.length} ${L("içerik", "items")} · ${t("swipeHint")}</small><button class="btn sm" id="allBtn">${ic("check")} ${t("approveAll")}</button></div><div id="deckBox"></div>`;
+  DECK_TOTAL = DECK.length;
+  return `<div id="deckBox"></div>`;
 }
-ROUTES[1].after = () => { if (DECK.length) paintDeck(); const b = $("#allBtn"); if (b) b.onclick = approveAll; };
+let DECK_TOTAL = 0;
+document.addEventListener("keydown", (e) => {
+  if (route().id !== "onay" || !$("#sheet").hidden || e.target.closest("input,textarea,select") || !DECK.length) return;
+  if (e.key === "ArrowRight") { e.preventDefault(); decide(DECK[0], true); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); decide(DECK[0], false); }
+  else if (e.key.toLowerCase() === "e" || e.key === "Enter") { e.preventDefault(); openEditor(DECK[0].id); }
+});
+ROUTES[1].after = () => { if (DECK.length) paintDeck(); };
 async function approveAll() {
   try {
     const r = await api("api/posts/approve-all", { body: {} });
@@ -407,13 +477,17 @@ function paintDeck() {
   const p = DECK[0];
   if (!p) { refreshState().then(render); return; }
   const blocked = p.blocked;
-  box.innerHTML = `<div class="deck"><div class="swipe" id="card"><span class="stamp yes">${L("ONAY", "YES")}</span><span class="stamp no">${L("RET", "NO")}</span>
-      <div class="row" style="justify-content:center;gap:8px;margin-bottom:8px"><span class="pill">${ic(FMT_ICON[p.format])} ${t(p.format)}</span><span class="pill">${esc(p.scheduled_at ? relDay(p.scheduled_at) + " " + hm(p.scheduled_at) : L("Zaman yok", "No time"))}</span><span class="pill">${t("p_" + (p.pillar || "urun"))}</span></div>
+  const done = DECK_TOTAL - DECK.length;
+  box.innerHTML = `<div class="deck-top"><div class="progress"><i style="width:${Math.round(100 * done / Math.max(1, DECK_TOTAL))}%"></i></div><small class="num">${done + 1} / ${DECK_TOTAL}</small><button class="btn sm ghost" id="allBtn" title="${t("approveAll")}">${ic("check")} ${L("Hepsi", "All")}</button></div>
+    <div class="deck"><div class="swipe" id="card"><span class="stamp yes">${L("Onay", "Yes")}</span><span class="stamp no">${L("Ret", "No")}</span>
+      <div class="meta"><span class="tagpill">${t(p.format)}</span><span class="tagpill">${esc(p.scheduled_at ? relDay(p.scheduled_at) + " · " + hm(p.scheduled_at) : L("Zaman yok", "No time"))}</span><span class="tagpill">${t("p_" + (p.pillar || "urun"))}</span></div>
       ${igPreview(p)}</div>
     ${blocked ? `<div class="finding error" style="margin-top:10px">${ic("err")}<span>${L("Onaydan önce düzeltilmesi gereken bir şey var. Düzenle'ye dokunun.", "Something must be fixed before approval. Tap Edit.")}</span></div>` : p.counts.warn ? `<div class="finding warn" style="margin-top:10px">${ic("warn")}<span>${L(`${p.counts.warn} uyarı var, düzenleyip bakabilirsiniz.`, `${p.counts.warn} warnings; open to check.`)}</span></div>` : ""}
     <div class="deck-actions"><button class="round no" id="noBtn" aria-label="${t("reject")}">${ic("x")}</button><button class="round mid" id="editBtn" aria-label="${t("edit")}">${ic("edit")}</button><button class="round yes" id="yesBtn" aria-label="${t("ok")}">${ic("check")}</button></div>
+    <div class="keys"><span><span class="kbd">←</span> ${t("reject")}</span><span><span class="kbd">E</span> ${t("edit")}</span><span><span class="kbd">→</span> ${t("ok")}</span></div>
     <details class="more why"><summary>${t("why")}</summary><ul>${(p.rationale || []).map((r) => `<li>${esc(r)}</li>`).join("")}</ul></details></div>`;
   hydrate(box);
+  $("#allBtn").onclick = approveAll;
   const card = $("#card");
   bindPreview(card, p);
   const yes = card.querySelector(".stamp.yes"), no = card.querySelector(".stamp.no");
@@ -448,10 +522,13 @@ async function decide(p, ok) {
     buzz(ok ? 12 : 8);
     snd(ok ? "success" : "select");
     if (card) { card.style.transform = `translateX(${ok ? 520 : -520}px) rotate(${ok ? 18 : -18}deg)`; card.style.opacity = 0; }
-    DECK.shift();
+    const gone = DECK.shift();
     S.state.counts.pending = Math.max(0, S.state.counts.pending - 1);
     paintNav();
     setTimeout(paintDeck, 220);
+    toast(ok ? L("Onaylandı", "Approved") : L("Reddedildi", "Rejected"), ok ? "ok" : "", { label: L("Geri al", "Undo"), run: async () => {
+      try { await api(`api/posts/${gone.id}/unapprove`, { body: {} }); DECK.unshift({ ...gone, status: "pending" }); DECK_TOTAL = Math.max(DECK_TOTAL, DECK.length); S.state.counts.pending++; paintNav(); if ($("#deckBox")) paintDeck(); else render(); snd("tap"); } catch (er) { fail(er); }
+    } });
   } catch (e) {
     if (card) card.style.transform = "";
     fail(e);
@@ -482,11 +559,13 @@ async function openEditor(id) {
       ? `<label class="f">${L("Hikâye kareleri (her satır bir kare)", "Story frames (one per line)")}</label><textarea class="input" id="story" rows="4">${esc(p.story_text || "")}</textarea>${ex.sticker ? `<p class="hint">${ic("info")} ${L("Paylaşımdan sonra uygulamadan ekleyin", "Add in the app after posting")}: ${esc(ex.sticker)}</p>` : ""}`
       : `<label class="f">${t("caption")}</label><textarea class="input" id="cap" rows="9">${esc(p.caption || "")}</textarea><div class="counter" id="capCount">${capLen} / 2200 · ${L("ilk 125 karakter görünür", "first 125 characters show")}</div>
          <label class="f">${t("hashtags")} <span id="tagCount" class="num"></span></label><div class="chips" id="tags"></div><input class="input" id="tagIn" placeholder="${L("etiket ekle, Enter", "add tag, Enter")}" style="margin-top:6px">
+         ${(p.tag_ideas || []).length ? `<div class="chips" id="tagIdeas" style="margin-top:8px">${p.tag_ideas.map((x) => `<button class="chip suggest" data-tag="${esc(x)}">+ #${esc(x)}</button>`).join("")}</div>` : ""}
          <p class="hint">${L("Instagram Aralık 2025'ten beri gönderi başına en fazla 5 hashtag kabul ediyor (açıklama ve ilk yorum dahil).", "Instagram allows at most 5 hashtags per post since December 2025 (caption and first comment included).")}</p>
          ${p.format === "reel" ? `<label class="f">${L("Reels kancası (videonun üstündeki ilk yazı)", "Reel hook (first on-screen text)")}</label><input class="input" id="hook" value="${esc(p.reel_hook || "")}">` : ""}
          ${["post", "carousel"].includes(p.format) ? `<label class="f">${t("alt")}</label><input class="input" id="alt" value="${esc(p.alt_text || "")}">` : ""}
          <label class="f">${t("firstComment")}</label><input class="input" id="fc" value="${esc(p.first_comment || "")}" placeholder="${L("isteğe bağlı", "optional")}">`}
     <label class="f">${t("when")}</label><input class="input" type="datetime-local" id="when" value="${p.scheduled_at ? toLocalInput(p.scheduled_at) : ""}">
+    <div class="chips" id="bestTimes" style="margin-top:8px"></div>
     <p class="hint">${L("Saat dilimi", "Time zone")}: ${esc(S.tz)}</p>
     <label class="switch"><span>${t("sponsored")}<br><small>${L("Ticari Reklam Yönetmeliği: açıklamanın başında #reklam / iş birliği ibaresi zorunlu.", "Must be disclosed at the start of the caption.")}</small></span><input type="checkbox" id="spon" ${p.sponsored ? "checked" : ""}></label>
     <label class="switch"><span>${t("aiLabel")}<br><small>${L("Instagram'da 'Yapay zekâ bilgisi' etiketi açılır.", "Sets Instagram's 'AI info' label.")}</small></span><input type="checkbox" id="ai" ${p.ai_label ? "checked" : ""}></label>
@@ -496,7 +575,7 @@ async function openEditor(id) {
        <pre style="white-space:pre-wrap;font:inherit;margin-top:12px">${esc(p.caption || p.story_text || "")}</pre>
        ${(p.comments_list || []).length ? `<h3 style="margin-top:14px">${t("comments")}</h3>${p.comments_list.map((c) => `<p><b>@${esc(c.username)}</b> ${esc(c.text)}</p>`).join("")}` : ""}`;
   const foot = editable
-    ? `<button class="btn danger sq" id="del" title="${t("del")}">${ic("x")}</button><button class="btn sq" id="dup" title="${t("duplicate")}">${ic("copy")}</button><button class="btn" id="saveBtn">${t("save")}</button>${p.status === "approved" ? `<button class="btn" id="unap">${L("Onayı geri al", "Unapprove")}</button>` : `<button class="btn ok" id="apBtn">${ic("check")} ${t("ok")}</button>`}<button class="btn primary" id="nowBtn">${ic("send")} ${t("publishNow")}</button>`
+    ? `<button class="btn danger sq" id="del" title="${t("del")}">${ic("x")}</button><button class="btn sq" id="dup" title="${t("duplicate")}">${ic("copy")}</button><button class="btn" id="saveBtn">${t("save")}</button>${p.status === "approved" ? `<button class="btn" id="unap">${L("Onayı geri al", "Unapprove")}</button>` : `<button class="btn primary" id="apBtn">${ic("check")} ${t("ok")}</button>`}<button class="btn" id="nowBtn">${ic("send")} ${t("publishNow")}</button>`
     : `<button class="btn" id="dup">${ic("copy")} ${L("Tekrar kullan", "Reuse")}</button>`;
   const box = sheet(`<div class="cols"><div>${left}</div><div>${right}</div></div>`, { title: `${t(p.format)} · ${p.scheduled_at ? relDay(p.scheduled_at) + " " + hm(p.scheduled_at) : t(p.status)}`, wide: true, foot, onClose: () => { if (route().id === "onay" || route().id === "takvim" || route().id === "") render(); } });
   bindPreview($("#pv", box), p);
@@ -527,6 +606,27 @@ async function openEditor(id) {
     paintTags();
     const tg = $("#tags", box);
     if (tg) tg.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) { tags.splice(+b.dataset.i, 1); paintTags(); snd("tap"); } };
+    const ti = $("#tagIdeas", box);
+    if (ti) ti.onclick = (e) => { const b = e.target.closest("[data-tag]"); if (!b) return; if (!tags.includes(b.dataset.tag)) tags.push(b.dataset.tag); b.remove(); paintTags(); snd("tap"); };
+    const bt = $("#bestTimes", box), when = $("#when", box);
+    const paintBest = () => {
+      if (!bt || !when) return;
+      const ts = when.value ? fromLocalInput(when.value) : Date.now() / 1000 + 86400;
+      const wd = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }[zoneParts(ts).weekday];
+      const hours = (S.state.best_slots || {})[wd] || [];
+      if (p.format === "story") { bt.innerHTML = ""; return; }
+      bt.innerHTML = hours.length ? `<small style="align-self:center">${L("Bu gün için en iyi saatler", "Best hours for this day")}:</small>` + hours.map((h) => `<button class="chip suggest" data-h="${h}">${String(h).padStart(2, "0")}:00</button>`).join("") : "";
+    };
+    if (bt) {
+      paintBest();
+      when.addEventListener("change", paintBest);
+      bt.onclick = (e) => {
+        const b = e.target.closest("[data-h]"); if (!b) return;
+        const base = when.value || toLocalInput(Date.now() / 1000 + 86400);
+        when.value = base.slice(0, 11) + String(b.dataset.h).padStart(2, "0") + ":00";
+        snd("tap"); paintBest();
+      };
+    }
     const tin = $("#tagIn", box);
     if (tin) tin.onkeydown = (e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); const v = tin.value.replace(/[#\s,]/g, ""); if (v && !tags.includes(v)) { tags.push(v.toLocaleLowerCase("tr")); paintTags(); snd("tap"); } tin.value = ""; } };
     const cap = $("#cap", box);
@@ -633,7 +733,7 @@ async function viewLibrary() {
   await loadMedia(true);
   const list = [...MEDIA.values()].filter((m) => !m.parent_id);
   const sel = pickMode ? pickMode.ids : [];
-  const head = `<div class="drop" id="drop"><p style="margin:0 0 10px">${t("uploadHint")}</p><label class="btn primary">${ic("plus")} ${t("upload")}<input type="file" id="fileIn" accept="image/*,video/mp4,video/quicktime" multiple hidden></label></div>
+  const head = `<div class="drop" id="drop"><p>${t("uploadHint")}</p><label class="btn primary">${ic("plus")} ${t("upload")}<input type="file" id="fileIn" accept="image/*,video/mp4,video/quicktime" multiple hidden></label></div>
     <div class="spread" style="margin:14px 0 8px"><small>${list.length} ${L("dosya", "files")} · ${L("rozet: kaç içerikte kullanıldı", "badge: times used")}</small>
     <button class="btn sm ${pickMode ? "primary" : ""}" id="pickBtn">${pickMode ? `${ic("sparkle")} ${L("Seçilenlerden içerik üret", "Create from selected")} (${sel.length})` : `${ic("check")} ${L("Seç ve içerik üret", "Select & create")}`}</button></div>`;
   if (!list.length) return head + `<div class="empty">${ic("img")}<h3>${L("Kütüphane boş", "Library is empty")}</h3><p>${L("Ürün fotoğraflarınızı ekleyin. Tellal bunlardan içerik planlar; fotoğraf üretmez, sizinkileri kullanır.", "Add your product photos. Tellal plans from them; it doesn't generate images, it uses yours.")}</p></div>`;
@@ -764,12 +864,30 @@ async function uploadImage(file) {
 async function uploadVideo(file) {
   if (file.size > 100 * 1024 * 1024) throw new Error(L("Video 100 MB'tan büyük.", "Video is larger than 100 MB."));
   const url = URL.createObjectURL(file);
-  const vm = await new Promise((res) => { const v = document.createElement("video"); v.preload = "metadata"; v.onloadedmetadata = () => res({ w: v.videoWidth, h: v.videoHeight, d: v.duration }); v.onerror = () => res({ w: 0, h: 0, d: 0 }); v.src = url; });
+  const vm = await new Promise((res) => {
+    const v = document.createElement("video");
+    Object.assign(v, { preload: "auto", muted: true, playsInline: true });
+    let meta = { w: 0, h: 0, d: 0, poster: null };
+    v.onloadedmetadata = () => { meta = { ...meta, w: v.videoWidth, h: v.videoHeight, d: v.duration }; v.currentTime = Math.min(1, (v.duration || 2) / 3); };
+    // One frame as the thumbnail, so lists don't have to download whole videos.
+    v.onseeked = () => {
+      try {
+        const c = document.createElement("canvas"); const sc = 360 / (v.videoWidth || 360);
+        c.width = 360; c.height = Math.round((v.videoHeight || 640) * sc);
+        c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+        c.toBlob((b) => res({ ...meta, poster: b }), "image/jpeg", 0.8);
+      } catch { res(meta); }
+    };
+    v.onerror = () => res(meta);
+    setTimeout(() => res(meta), 6000);
+    v.src = url;
+  });
   const warn = vm.d > 90 ? L("90 saniyeden uzun: Reels için 7–30 sn daha iyi sonuç verir.", "Longer than 90 s: 7–30 s works better for Reels.") : vm.w && vm.w / vm.h > 0.7 ? L("Dikey değil: Reels ve hikâye için 9:16 çekim önerilir.", "Not vertical: shoot 9:16 for Reels and Stories.") : "";
   const info = await askMeta(`<video src="${url}" controls playsinline style="width:100%;max-height:44vh;border-radius:12px;background:#000"></video><p class="hint">${vm.w}×${vm.h} · ${nf(vm.d, 1)} sn</p>${warn ? `<div class="finding warn">${ic("warn")}<span>${warn}</span></div>` : ""}`, file.name);
   const fd = new FormData();
   fd.append("file", file, file.name); fd.append("title", info.title); fd.append("notes", info.notes); fd.append("tags", info.tags);
   fd.append("width", String(vm.w || 0)); fd.append("height", String(vm.h || 0)); fd.append("duration", String(vm.d || 0));
+  if (vm.poster) fd.append("poster", vm.poster, "poster.jpg");
   await sendUpload(fd);
 }
 async function sendUpload(fd) {
@@ -797,7 +915,7 @@ async function viewAnalysis(q) {
   return `<div class="row wrap" style="justify-content:space-between;margin-bottom:12px"><div class="seg" id="rangeSeg">${[7, 30, 90].map((d) => `<button data-v="${d}" aria-pressed="${d === days}">${d} ${L("gün", "days")}</button>`).join("")}</div><small>${L("Önceki dönemle karşılaştırma", "vs. previous period")}</small></div>
     <div class="grid g2 g4">${stat("reach", t("reach"), tt.reach)}${stat("posts", L("Paylaşım", "Posts"), tt.posts)}${`<div class="stat"><b class="num">${nf(inter)}</b><span>${t("interactions")}</span></div>`}${stat("follows", L("Yeni takipçi", "New followers"), tt.follows)}${stat("shares", t("shares"), tt.shares)}${stat("saves", t("saves"), tt.saves)}${stat("profile_visits", L("Profil ziyareti", "Profile visits"), tt.profile_visits)}${stat("avg_reach", L("Ort. erişim", "Avg reach"), tt.avg_reach)}</div>
     <div class="section"><h2>${L("Tellal ne diyor?", "What Tellal sees")}</h2></div><div class="card"><ul class="advice" style="margin:0;padding-left:20px">${a.advice.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
-    <div class="cols"><div><div class="section"><h2>${L("Biçime göre ortalama erişim", "Average reach by format")}</h2></div><div class="card"><div class="bars">${fmts.map(([k, v]) => `<div class="bar"><span>${t(k)} <small>(${v.count})</small></span><span class="track"><i style="width:${Math.round(100 * v.reach / maxR)}%"></i></span><b class="num">${nf(v.reach)}</b></div>`).join("") || `<small>–</small>`}</div>
+    <div class="cols"><div><div class="section"><h2>${L("Biçime göre ortalama erişim", "Average reach by format")}</h2></div><div class="card"><div class="bars">${fmts.map(([k, v]) => `<div class="bar"><span>${t(k)} <small>(${v.count})</small></span><span class="track"><i class="${v.reach === maxR ? "hi" : ""}" style="width:${Math.round(100 * v.reach / maxR)}%"></i></span><b class="num">${nf(v.reach)}</b></div>`).join("") || `<small>–</small>`}</div>
       <p class="hint">${L("Gönderilme ve kaydetme oranı erişime bölünerek karşılaştırılır; ham beğeni sayısı yanıltır.", "Sends and saves are compared per reach; raw likes mislead.")}</p></div>
       <div class="section"><h2>${L("Konulara göre", "By topic")}</h2></div><div class="card"><table class="t"><tr><th>${L("Konu", "Topic")}</th><th class="r">${L("Adet", "Posts")}</th><th class="r">${t("reach")}</th><th class="r">${t("shares")}</th><th class="r">${t("saves")}</th></tr>${pil.map(([k, v]) => `<tr><td>${t("p_" + k)}</td><td class="r num">${v.count}</td><td class="r num">${nf(v.reach)}</td><td class="r num">${pct(v.send)}</td><td class="r num">${pct(v.save)}</td></tr>`).join("")}</table></div></div>
     <div><div class="section"><h2>${L("Saat haritası", "Best times")}</h2></div><div class="card">${heat}<p class="hint">${a.learned ? L("Koyu kareler: sizin hesabınızda daha iyi sonuç alan gün/saatler.", "Darker: days and hours that worked best for you.") : L("Henüz yeterli veri yok; plan genel saatleri kullanıyor.", "Not enough data yet; the plan uses general hours.")}</p><div class="chips" style="margin-top:8px">${slots}</div></div>
@@ -811,10 +929,10 @@ async function viewAds() {
   const a = await api("api/ads");
   const items = a.items.length ? a.items.map((it) => `<div class="card"><div class="row" style="align-items:flex-start">${thumb(it.media_ids[0], it.format)}<div class="grow"><div class="row wrap" style="gap:6px"><span class="pill published">${L(`ortalamanın ${nf(it.ratio, 1)} katı`, `${nf(it.ratio, 1)}× your median`)}</span><span class="pill">${t(it.format)}</span></div><p class="clamp2" style="margin:6px 0 4px">${esc(it.caption.split("\n")[0])}</p><small>${esc(it.why.join(" · "))}</small></div></div>
       ${it.blocked ? `<div class="finding error" style="margin-top:10px">${ic("err")}<span>${L("Açıklamada doldurulmamış alan var; öne çıkarmadan önce düzeltin.", "Caption has a placeholder; fix it before boosting.")}</span></div>` : ""}
-      <div class="tiers">${it.tiers.map((tr, i) => `<div class="tier ${i === 1 ? "mid" : ""}"><small>${esc(tr.name)} · ${tr.days} ${L("gün", "days")}</small><b class="num">${money(tr.total)}</b><small>${money(tr.daily)}/${L("gün", "day")} + %5</small><small style="margin-top:6px">${L("Tahmini erişim", "Est. reach")}<br><b class="num" style="font-size:13.5px">${nf(tr.reach[0])}–${nf(tr.reach[1])}</b></small></div>`).join("")}</div>
+      <div class="tiers">${it.tiers.map((tr, i) => `<div class="tier ${i === 1 ? "mid" : ""}"><div class="eyebrow">${esc(tr.name)} · ${tr.days} ${L("gün", "days")}</div><b class="num">${money(tr.total)}</b><small>${money(tr.daily)}/${L("gün", "day")} + %5</small><small style="margin-top:6px">${L("Tahmini erişim", "Est. reach")}<br><b class="num" style="font-size:13.5px">${nf(tr.reach[0])}–${nf(tr.reach[1])}</b></small></div>`).join("")}</div>
       <div class="row wrap" style="margin-top:12px"><button class="btn sm" data-open="${it.post_id}">${L("Gönderiyi aç", "Open post")}</button><span class="hint">${L("Amaç", "Goal")}: ${esc({ messages: L("mesaj", "messages"), visits: L("ziyaret", "visits"), traffic: L("site trafiği", "traffic"), reach: L("erişim", "reach") }[it.goal])}</span></div></div>`).join("")
     : `<div class="empty">${ic("bolt")}<h3>${L("Şimdilik öneri yok", "No suggestions yet")}</h3><p>${esc(a.note || L("Ortalamanın belirgin üstünde performans gösteren bir gönderi çıkınca burada önereceğim.", "When a post clearly beats your average, it shows up here."))}</p></div>`;
-  return `<div class="card" style="background:var(--teal-soft);border-color:transparent;color:var(--teal)"><b>${L("Tellal para harcamaz.", "Tellal never spends money.")}</b> ${L("Organik olarak zaten iyi giden gönderiyi öne çıkarmak en ucuz erişim yoludur. Aşağıdakiler öneridir; uygulamak sizin elinizde.", "Boosting a post that already works organically is the cheapest reach. These are suggestions; you decide.")}</div>
+  return `<div class="note"><b>${L("Tellal para harcamaz.", "Tellal never spends money.")}</b> ${L("Organik olarak zaten iyi giden gönderiyi öne çıkarmak en ucuz erişim yoludur. Aşağıdakiler öneridir; uygulamak sizin elinizde.", "Boosting a post that already works organically is the cheapest reach. These are suggestions; you decide.")}</div>
     <div class="section"><h2>${L("Öne çıkarmaya değer", "Worth boosting")}</h2></div><div class="stack">${items}</div>
     <div class="cols"><div><div class="section"><h2>${L("Bütçe hesaplayıcı", "Budget calculator")}</h2></div><div class="card" id="calc">
       <div class="seg" id="cf">${["reel", "post", "story"].map((f, i) => `<button data-v="${f}" aria-pressed="${i === 0}">${t(f)}</button>`).join("")}</div>
@@ -1010,6 +1128,7 @@ function applyTheme() {
 }
 applyTheme();
 document.documentElement.lang = LANG;
+window.addEventListener("scroll", () => $(".top").classList.toggle("scrolled", scrollY > 4), { passive: true });
 window.addEventListener("hashchange", () => { closeSheet(); if (route().id !== "kutuphane") pickMode = null; render(); });
 
 let lastPending = null;
@@ -1033,7 +1152,7 @@ async function heartbeat() {
   setInterval(heartbeat, 30000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) heartbeat(); });
   if (AK && !window.pybridge) {
-    AK.installHint({ app: "Tellal", accent: "#c4552a", lang: () => LANG, bottom: 84 });
+    AK.installHint({ app: "Tellal", accent: "#1b1b19", lang: () => LANG, bottom: 84 });
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   }
   if ("serviceWorker" in navigator && !window.pybridge) navigator.serviceWorker.register("sw.js").catch(() => {});

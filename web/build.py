@@ -90,7 +90,7 @@ def build_app_wheel(dest: Path) -> str:
 def page(index: Path) -> str:
     html = index.read_text(encoding="utf-8")
     bridge = (
-        f'<script src="pybridge.js" data-app="{CFG["short_name"]}" data-accent="{CFG["theme_color"]}" data-routes="{",".join(CFG["routes"])}" '
+        f'<script src="pybridge.js" data-app="{CFG["short_name"]}" data-accent="{CFG.get("accent", CFG["theme_color"])}" data-routes="{",".join(CFG["routes"])}" '
         f'data-sounds="{CFG.get("sounds", "auto")}" data-sound-before="{CFG.get("sound_button_before", "")}"></script>\n'
     )
     anchor = '<script src="appkit.js"></script>'
@@ -145,7 +145,9 @@ def main() -> None:
     if CFG.get("static"):
         # The app's own static files (scripts, styles, icons) sit next to index.html.
         for f in sorted((ROOT / CFG["static"]).iterdir()):
-            if f.is_file() and f.name not in {"index.html", "sw.js", "manifest.webmanifest"}:
+            if f.is_dir():
+                shutil.copytree(f, OUT / f.name)
+            elif f.name not in {"index.html", "sw.js", "manifest.webmanifest"}:
                 shutil.copy2(f, OUT / f.name)
     for f in ["pybridge.js", "py-worker.mjs"]:
         shutil.copy2(WEB / f, OUT / f)

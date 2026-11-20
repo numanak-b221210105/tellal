@@ -1,6 +1,6 @@
 // Offline shell for the installed app. API calls and media always go to the server.
-const CACHE = "tellal-v1";
-const SHELL = ["./", "app.js", "app.css", "appkit.js", "icon.svg", "icon-192.png", "manifest.webmanifest"];
+const CACHE = "tellal-v2";
+const SHELL = ["./", "app.js", "app.css", "appkit.js", "icon.svg", "icon-192.png", "manifest.webmanifest", "fonts/inter-latin-wght-normal.woff2", "fonts/instrument-serif-latin-400-normal.woff2"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith("tellal-") && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

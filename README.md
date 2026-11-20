@@ -35,13 +35,13 @@ A small shop on Instagram usually has three problems: no time to post regularly,
 |---|---|
 | **Weekly plan** | Fills the next 7 days up to the rhythm you set (for example 3 posts, 2 Reels, 1 story a day). Spreads days, picks the least-used photo or video for each slot, turns every third feed post into a carousel when there are photos that belong together, keeps videos for Reels and falls back to a photo post (and says so) when there aren't enough. Writes for upcoming Turkish occasions (Mother's Day, Black Friday, Teachers' Day, Ramadan and Sacrifice holidays…). |
 | **Drafts** | Hook in the first line, details from your notes and selling points, an invitation to *send* or *save* (sends and saves per reach are among Instagram's strongest signals), your call to action (DM, WhatsApp, link, visit, call), up to 5 hashtags (brand, product, sector, city). Reels get an on-screen hook and a 7–12 second shot plan; stories get three frames and a sticker suggestion; carousels get slide texts. Rewrite, change topic, format or language with one tap. |
-| **Review** | A swipe deck on the phone (right: approve, left: reject, tap: edit) with an Instagram-like preview. Errors (placeholders, wrong ratio, too many hashtags, missing disclosure) block approval; warnings and tips are shown. "Approve the ready ones" approves everything without errors in one go. |
+| **Review** | A swipe deck on the phone (right: approve, left: reject, tap: edit) with an Instagram-like preview. Errors (placeholders, wrong ratio, too many hashtags, missing disclosure) block approval; warnings and tips are shown. "Approve the ready ones" approves everything without errors in one go. Every decision can be undone from the toast; on desktop, <kbd>←</kbd> <kbd>→</kbd> <kbd>E</kbd> work too. |
 | **Publishing** | Instagram's container flow: create, wait until processed (videos take a while, so the scheduler comes back later instead of blocking), publish, then add the optional first comment. Checks the 24-hour publishing limit first. Network and rate-limit errors are retried with backoff; permanent errors stop and are shown. 60-day tokens are refreshed automatically. |
 | **Insights** | Reach, sends, saves, comments, follows and Reel watch time per post. Compares formats and topics *per reach*, draws a weekday × hour heatmap, learns your two best hours per weekday once there are 8+ posts, and writes plain-language advice ("Reels reach 4.6× more people", "behind-the-scenes posts get the most interaction, the plan adds one more per week"). |
 | **Comments** | Pulls new comments, sorts them by intent (price, stock, order, question, praise, complaint, spam) and drafts a reply that uses your real contact details and prices. Complaints never get a template: they are flagged for a personal answer. Nothing is sent until you press reply. |
 | **Ad suggestions** | Picks posts that clearly beat your median organically (boosting a proven post is the cheapest reach), and gives three budget options with total cost, Meta's 5% location fee for Turkey, CPM ranges for the format and season, and estimated reach as a range. Includes targeting ideas and notes on VAT. **Recommendation only.** |
 | **Brand profile** | Sector, city, tone (warm, professional, playful, elegant, plain), emoji level, content languages, selling points, products and prices, banned words, brand hashtag, contact method, rhythm and quiet hours. Also suggests bios (max 150 characters) to copy, because Instagram doesn't let apps change the bio. |
-| **Library** | Upload from the phone or desktop; images are cropped and converted to JPEG in the browser, videos are checked for length and orientation. Usage counters show what has been used how often. |
+| **Library** | Upload from the phone or desktop; images are cropped and converted to JPEG in the browser, videos are checked for length and orientation and get a poster frame, so lists never download whole videos. Usage counters show what has been used how often. |
 | **Everywhere** | Mobile-first PWA (installable, dark mode, safe areas, haptics on Android), desktop layout with a sidebar, Turkish and English interface, soft synthesized UI sounds that follow the phone's silent switch, optional panel password. |
 
 | Today | Editor with checks |
@@ -51,6 +51,10 @@ A small shop on Instagram usually has three problems: no time to post regularly,
 | Insights | Calendar |
 |---|---|
 | ![Insights](docs/insights.jpg) | ![Calendar](docs/calendar.jpg) |
+
+## Design
+
+Paper and ink with a single warm accent, used only where attention is needed (what's waiting for you, the active page). Headings are set in Instrument Serif, the interface in Inter; both are bundled (SIL Open Font License), so the app looks the same offline. Status is a coloured dot and a word, not a badge. The primary action on every screen is the one dark button. A first-run setup asks three short questions instead of showing the whole brand form, and the editor suggests the best hours for the chosen day and hashtags you haven't used yet.
 
 ## Honest limits
 

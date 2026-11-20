@@ -6,11 +6,26 @@
   "module": "tellal.api:app",
   "index": "src/tellal/static/index.html",
   "static": "src/tellal/static",
-  "routes": ["/api/", "/media/", "/p/", "/auth/"],
-  "requirements": ["fastapi==0.163.1", "pydantic==2.14.3", "python-multipart==0.0.34"],
-  "env": {"TELLAL_DATA_DIR": "/home/pyodide/data", "TELLAL_MODE": "demo", "TELLAL_LLM": "off", "TELLAL_PUBLIC_URL": "https://localhost"},
+  "routes": [
+    "/api/",
+    "/media/",
+    "/p/",
+    "/auth/"
+  ],
+  "requirements": [
+    "fastapi==0.163.1",
+    "pydantic==2.14.3",
+    "python-multipart==0.0.34"
+  ],
+  "env": {
+    "TELLAL_DATA_DIR": "/home/pyodide/data",
+    "TELLAL_MODE": "demo",
+    "TELLAL_LLM": "off",
+    "TELLAL_PUBLIC_URL": "https://localhost"
+  },
   "persist": "/home/pyodide/data",
   "sounds": "app",
-  "theme_color": "#c4552a",
-  "background_color": "#f5f1ea"
+  "theme_color": "#f6f4ef",
+  "background_color": "#f6f4ef",
+  "accent": "#1b1b19"
 }
