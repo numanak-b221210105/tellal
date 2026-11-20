@@ -25,7 +25,7 @@
   },
   "persist": "/home/pyodide/data",
   "sounds": "app",
-  "theme_color": "#f6f4ef",
-  "background_color": "#f6f4ef",
-  "accent": "#1b1b19"
+  "theme_color": "#f5f5f8",
+  "background_color": "#f5f5f8",
+  "accent": "#6b5cf6"
 }

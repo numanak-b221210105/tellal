@@ -131,6 +131,29 @@ def best_slots(posts: list[dict[str, Any]], tz_name: str, quiet: tuple[int, int]
     return out
 
 
+def series(
+    cur: list[dict[str, Any]], prev: list[dict[str, Any]], tz_name: str, days: int, now: float
+) -> dict[str, Any]:
+    """Reach per local day for this period and the one before it, aligned day by day."""
+    end = local(now, tz_name).date()
+    labels = [(end.toordinal() - days + 1 + i) for i in range(days)]
+    cur_by: dict[int, int] = defaultdict(int)
+    prev_by: dict[int, int] = defaultdict(int)
+    lo, hi = labels[0], labels[-1]
+    # The period is "the last N x 24 hours", so its first post can fall on the day before the first label.
+    for p in cur:
+        cur_by[min(hi, max(lo, local(p["published_at"], tz_name).date().toordinal()))] += p.get("reach") or 0
+    for p in prev:
+        prev_by[min(hi, max(lo, local(p["published_at"], tz_name).date().toordinal() + days))] += p.get("reach") or 0
+    from datetime import date
+
+    return {
+        "labels": [date.fromordinal(o).isoformat() for o in labels],
+        "current": [cur_by.get(o, 0) for o in labels],
+        "previous": [prev_by.get(o, 0) for o in labels],
+    }
+
+
 def summary(
     posts: list[dict[str, Any]], tz_name: str, days: int = 30, now: float | None = None, lang: str = "tr"
 ) -> dict[str, Any]:
@@ -169,6 +192,8 @@ def summary(
     by_format, by_pillar = _group(cur, "format"), _group(cur, "pillar")
     slots = best_slots(posts, tz_name)
     return {
+        "series": series(cur, prev, tz_name, days, now),
+        "posts": [slim(p) for p in sorted(cur, key=lambda p: p["published_at"], reverse=True)],
         "days": days,
         "totals": tc,
         "previous": tp,

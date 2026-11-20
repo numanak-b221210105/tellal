@@ -149,6 +149,35 @@ def test_video_posters_and_editor_helpers(client):
 
 
 def test_fonts_are_served(client):
-    r = client.get("/fonts/inter-latin-wght-normal.woff2")
+    r = client.get("/fonts/geist-latin-wght-normal.woff2")
     assert r.status_code == 200 and r.headers["content-type"] == "font/woff2"
     assert client.get("/fonts/..%2Fapp.js").status_code == 404
+
+
+def test_bulk_actions_and_reschedule_keep_approval(client):
+    pending = client.get("/api/posts?status=pending").json()
+    ready = [p["id"] for p in pending if not p["blocked"]][:2]
+    blocked = [p["id"] for p in pending if p["blocked"]][:1]
+    r = client.post("/api/posts/bulk", json={"ids": ready + blocked, "action": "approve"}).json()
+    assert r["done"] == len(ready) and r["skipped"] == len(blocked)
+    pid = ready[0]
+    p = client.patch(f"/api/posts/{pid}", json={"scheduled_at": time.time() + 3 * 86400}).json()
+    assert p["status"] == "approved"  # moving a post doesn't need a second approval
+    assert client.patch(f"/api/posts/{pid}", json={"caption": "Yeni metin."}).json()["status"] == "pending"
+    assert client.post("/api/posts/bulk", json={"ids": [pid], "action": "delete"}).json()["done"] == 1
+    assert client.get(f"/api/posts/{pid}").status_code == 404
+
+
+def test_export_has_no_tokens(client):
+    r = client.get("/api/export")
+    assert r.status_code == 200 and "attachment" in r.headers["content-disposition"]
+    data = r.json()
+    assert data["posts"] and data["brand"]["name"]
+    assert all("token" not in a for a in data["accounts"])
+
+
+def test_analytics_series_lines_up(client):
+    a = client.get("/api/analytics?days=30").json()
+    s = a["series"]
+    assert len(s["labels"]) == len(s["current"]) == len(s["previous"]) == 30
+    assert sum(s["current"]) == a["totals"]["reach"]

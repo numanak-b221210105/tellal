@@ -103,6 +103,11 @@ class CommentPatch(BaseModel):
     status: Literal["open", "ignored", "spam", "replied"] | None = None
 
 
+class Bulk(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=200)
+    action: Literal["approve", "reject", "delete", "pending"]
+
+
 class Login(BaseModel):
     password: str
 
@@ -490,7 +495,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "story_frames": [x for x in data["story_text"].split("\n") if x.strip()],
             }
         # Any edit after approval sends it back for a final look.
-        if p["status"] == "approved":
+        if p["status"] == "approved" and set(data) - {"scheduled_at"}:
             data["status"] = "pending"
         if p["status"] == "failed":
             data.update(status="pending", error=None, attempts=0, next_try=None)
@@ -582,6 +587,57 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(409, "Şu an paylaşılıyor.")
         store.delete_post(pid)
         return {"ok": True}
+
+    @app.post("/api/posts/bulk")
+    def bulk(body: Bulk, request: Request) -> dict[str, Any]:
+        lang = lang_of(request)
+        done, skipped = 0, 0
+        for pid in body.ids:
+            p = store.post(pid)
+            if not p or p["status"] in {"published", "publishing"}:
+                skipped += 1
+                continue
+            if body.action == "approve":
+                if compliance.blocking(findings(p, lang)) or p["status"] not in {"pending", "draft", "failed"}:
+                    skipped += 1
+                    continue
+                store.update_post(
+                    pid, status="approved", scheduled_at=p.get("scheduled_at") or time.time() + 300, next_try=None
+                )
+            elif body.action == "reject":
+                store.update_post(pid, status="rejected")
+            elif body.action == "pending":
+                store.update_post(pid, status="pending", next_try=None)
+            else:
+                store.delete_post(pid)
+            done += 1
+        if done:
+            store.log("bulk", f"{done} içerik: {body.action}.")
+        return {"done": done, "skipped": skipped}
+
+    @app.get("/api/export")
+    def export() -> Response:
+        """Everything except media files and tokens, as one JSON file (backup or moving to another server)."""
+        import json as _json
+
+        data = {
+            "app": "tellal",
+            "version": __version__,
+            "exported_at": time.time(),
+            "brand": load_brand(store).model_dump(),
+            "accounts": [{k: v for k, v in a.items() if k != "token"} for a in store.accounts()],
+            "media": store.media_list(),
+            "posts": store.posts(),
+            "comments": store.comments(),
+            "events": store.events(1000),
+        }
+        body = _json.dumps(data, ensure_ascii=False, indent=1, default=str)
+        stamp = time.strftime("%Y%m%d")
+        return Response(
+            body,
+            media_type="application/json",
+            headers={"content-disposition": f'attachment; filename="tellal-yedek-{stamp}.json"'},
+        )
 
     @app.post("/api/posts/approve-all")
     def approve_all(request: Request) -> dict[str, Any]:
